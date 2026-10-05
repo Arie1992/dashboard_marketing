@@ -95,126 +95,68 @@ def geprek():
     df["Review"]=raw[comment].fillna("").astype(str).str.strip() if comment else ""
     return df.dropna(subset=["Timestamp"]).sort_values("Timestamp"),source
 
-# ONE LINK / TWO VIEWS — custom HTML navigation uses ?view=all / ?view=geprek
-try:
-    _view=st.query_params.get("view","geprek")
-except Exception:
-    _view="geprek"
+
+REFERENCE_TEMPLATE=(BASE/"market_insight_reference.html").read_text(encoding="utf-8")
+try: _view=st.query_params.get("view","geprek")
+except Exception: _view="geprek"
 st.session_state.view="all" if _view=="all" else "geprek"
 
-V6_TEMPLATE=(BASE/"geprek_v6_template.html").read_text(encoding="utf-8")
-
-def geprek_v6_html(df,source_label):
-    html=V6_TEMPLATE
-    custom=r"""
-<style>
-html,body{margin:0!important}
-.kk-shell{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh;transition:grid-template-columns .2s ease}
-.kk-shell.collapsed{grid-template-columns:0 minmax(0,1fr)}
-.kk-side{position:sticky;top:0;height:100vh;background:#fff;border-right:1px solid #dbe3e2;overflow:hidden;transition:transform .2s ease;z-index:30}
-.kk-shell.collapsed .kk-side{transform:translateX(-245px);visibility:hidden}
-.kk-brand{padding:25px 20px 18px;color:#0d3d4d;font-weight:850;font-size:17px}
-.kk-nav{padding:6px 12px}.kk-nav a{display:block;text-decoration:none;color:#385058;padding:12px 13px;border-radius:8px;margin-bottom:6px;font-weight:700}
-.kk-nav a.active{background:#e9f3f2;color:#0d5364}.kk-hide{position:absolute;bottom:25px;left:12px;right:12px;border:1px solid #d9e2e1;background:#f8faf9;border-radius:8px;padding:11px;cursor:pointer;color:#52666b}
-.kk-main{min-width:0;position:relative}.kk-open{position:fixed;left:14px;top:14px;z-index:50;width:43px;height:43px;border:0;border-radius:9px;background:white;box-shadow:0 3px 14px #102f3b35;font-size:23px;color:#0d3d4d;cursor:pointer;display:none}
-.kk-shell.collapsed .kk-open{display:block}
-@media(max-width:760px){.kk-shell{grid-template-columns:0 minmax(0,1fr)}.kk-side{transform:translateX(-245px);visibility:hidden}.kk-open{display:block}}
-</style>
-<div class="kk-shell" id="kkShell">
-<aside class="kk-side">
- <div class="kk-brand">Market Insight</div>
- <nav class="kk-nav">
-   <a href="?view=all" target="_top">ALL MENU / Dashboard Lama</a>
-   <a href="?view=geprek" target="_top" class="active">Ayam Geprek</a>
- </nav>
- <button class="kk-hide" onclick="toggleKK(true)">‹ &nbsp; Hide Menu</button>
-</aside>
-<section class="kk-main"><button class="kk-open" onclick="toggleKK(false)">☰</button>
-"""
-    html=custom+html+r"""
-</section></div>
-<script>
-function toggleKK(hide){
- const sh=document.getElementById('kkShell');
- sh.classList.toggle('collapsed',hide);
- try{localStorage.setItem('kk_menu_hidden',hide?'1':'0')}catch(e){}
-}
-try{if(localStorage.getItem('kk_menu_hidden')==='1')toggleKK(true)}catch(e){}
-</script>
-"""
+def geprek_reference_html(df,source_label):
+    html=REFERENCE_TEMPLATE
     attrs=["Ayam","Sambal","Kol Goreng","Tahu","Tempe","Bayam Crispy"]
     aspects=["Overall Rasa","Overall Plating","Rasa vs Harga","Porsi vs Harga"]
-    records=[]
+    data=[]
     for _,r in df.iterrows():
-        z={"Timestamp":r["Timestamp"].isoformat(),"Review":str(r.get("Review","") or "")}
+        row={"Timestamp":r["Timestamp"].isoformat(),"Review":str(r.get("Review","") or "")}
         for c in attrs+aspects:
-            v=r.get(c); z[c]=None if pd.isna(v) else float(v)
-        records.append(z)
+            v=r.get(c); row[c]=None if pd.isna(v) else float(v)
+        data.append(row)
 
-    # KPI placeholders
-    html=html.replace('<div class="val">282</div>','<div class="val" id="kpiN">—</div>',1)
-    html=html.replace('<div class="val">4,73 <small>/ 5</small></div>','<div class="val" id="kpiRasa">—</div>',1)
-    html=html.replace('<div class="val">4,61 <small>/ 5</small></div>','<div class="val" id="kpiPlating">—</div>',1)
-    html=html.replace('<div class="val">4,50 <small>/ 5</small></div>','<div class="val" id="kpiHarga">—</div>',1)
+    html=html.replace('<button class="active" data-page="overview">▣ Ayam Geprek</button>',
+                      '<button class="active" onclick="location.href=\\'?view=geprek\\'">▣ Ayam Geprek</button>',1)
+    html=html.replace('<button data-page="legacy">▣ Menu Existing / Lama</button>',
+                      '<button onclick="location.href=\\'?view=all\\'">▣ Menu Existing / Lama</button>',1)
+    html=re.sub(r'<label class="field"><span>Outlet</span><select>.*?</select></label>','',html,count=1,flags=re.S)
 
-    js=r"""
+    a=html.find("<script>"); b=html.rfind("</script>")
+    js = '''<script>
 const DATA=__DATA__;
-const ATTRS=['Ayam','Sambal','Kol Goreng','Tahu','Tempe','Bayam Crispy'];
-const ASPECTS=['Overall Rasa','Overall Plating','Rasa vs Harga','Porsi vs Harga'];
+const ATTRS=["Ayam","Sambal","Kol Goreng","Tahu","Tempe","Bayam Crispy"];
+const ASPECTS=["Overall Rasa","Overall Plating","Rasa vs Harga","Porsi vs Harga"];
 const $=x=>document.getElementById(x), day=x=>x.Timestamp.slice(0,10);
-const fmt=v=>Number.isFinite(v)?v.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
-const mean=(a,k)=>{let v=a.map(x=>x[k]).filter(Number.isFinite);return v.length?v.reduce((p,q)=>p+q,0)/v.length:null};
-const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let D=DATA, dates=DATA.map(day).sort();
-if(dates.length){$('from').value=dates[0];$('to').value=dates[dates.length-1]}
-
+const mean=(a,k)=>{const v=a.map(x=>x[k]).filter(Number.isFinite);return v.length?v.reduce((p,q)=>p+q,0)/v.length:null};
+const fmt=v=>Number.isFinite(v)?v.toLocaleString("id-ID",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
+const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c]));
+let D=DATA; const dates=DATA.map(day).sort();
+if(dates.length){$("from").value=dates[0];$("to").value=dates[dates.length-1]}
+function productHtml(){return ATTRS.map(k=>{const v=mean(D,k);return `<div class="product"><strong>${k}</strong><div class="score">${fmt(v)}</div><div class="stars">★★★★★</div><div class="track"><div class="fill" style="width:${(v||0)/5*100}%"></div></div></div>`}).join("")}
 function render(){
- let a=$('from').value,b=$('to').value;
- D=DATA.filter(x=>(!a||day(x)>=a)&&(!b||day(x)<=b));
- $('kpiN').textContent=D.length;
- $('kpiRasa').innerHTML=fmt(mean(D,'Overall Rasa'))+' <small>/ 5</small>';
- $('kpiPlating').innerHTML=fmt(mean(D,'Overall Plating'))+' <small>/ 5</small>';
- let q=[mean(D,'Rasa vs Harga'),mean(D,'Porsi vs Harga')].filter(Number.isFinite);
- $('kpiHarga').innerHTML=(q.length?fmt(q.reduce((p,v)=>p+v,0)/q.length):'—')+' <small>/ 5</small>';
-
- $('attrs').innerHTML=ATTRS.map(k=>{let v=mean(D,k);return `<div class="attr"><div class="attrname">${k}</div><div class="score">${fmt(v)}</div><div class="track"><div class="fill" style="width:${(v||0)/5*100}%"></div></div></div>`}).join('');
-
- let ds=[...new Set(D.map(day))].sort(),counts=ds.map(d=>D.filter(x=>day(x)==d).length),mx=Math.max(1,...counts);
- $('trend').innerHTML=ds.map((d,i)=>`<div class="tcol"><b>${counts[i]}</b><div class="bar" style="height:${counts[i]/mx*125}px"></div>${d.slice(8,10)}/${d.slice(5,7)}</div>`).join('');
-
- let aa=ASPECTS.map(k=>({name:k,avg:mean(D,k),low:D.filter(x=>Number.isFinite(x[k])&&x[k]<=3).length}));
- if($('aspectRows')) $('aspectRows').innerHTML=aa.map(x=>{let pct=D.length?x.low/D.length*100:0,flag=x.low===0?'Baik':pct<3?'Perlu dipantau':pct<6?'Perlu perhatian':'Prioritas';return `<tr onclick="selectAspect('${x.name}')" style="cursor:pointer"><td><b>${x.name}</b></td><td>${fmt(x.avg)}</td><td><span class="pill">${x.low}</span></td><td>${pct.toLocaleString('id-ID',{maximumFractionDigits:1})}%</td><td>${flag}</td></tr>`}).join('');
-
- let cs=[1,2,3,4,5].map(v=>D.filter(x=>x['Overall Rasa']===v).length),cm=Math.max(1,...cs);
- $('rating').innerHTML=cs.map((n,i)=>`<div class="tcol"><b>${n}</b><div class="bar" style="height:${Math.max(3,n/cm*125)}px"></div>${i+1}</div>`).join('');
-
- $('rows').innerHTML=[...D].reverse().map(x=>`<tr><td>${new Date(x.Timestamp).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})}</td><td>—</td>${ATTRS.map(k=>`<td><span class="pill">${x[k]??'—'}</span></td>`).join('')}<td><span class="pill">${x['Overall Rasa']??'—'}</span></td><td>${x['Overall Plating']??'—'}</td><td>${x['Rasa vs Harga']??'—'}</td><td>${x['Porsi vs Harga']??'—'}</td><td style="min-width:260px;white-space:normal">${esc(x.Review)}</td></tr>`).join('');
- renderReviews();
+ const f=$("from").value,t=$("to").value;D=DATA.filter(x=>(!f||day(x)>=f)&&(!t||day(x)<=t));
+ const vals=document.querySelectorAll("#overview .stat .value");
+ if(vals.length>=5){vals[0].textContent=D.length.toLocaleString("id-ID");vals[1].textContent=fmt(mean(D,"Overall Rasa"));vals[2].textContent=fmt(mean(D,"Overall Plating"));vals[3].textContent=fmt(mean(D,"Rasa vs Harga"));vals[4].textContent=fmt(mean(D,"Porsi vs Harga"))}
+ $("products").innerHTML=productHtml();$("products2").innerHTML=productHtml();
+ const cs=[1,2,3,4,5].map(v=>D.filter(x=>x["Overall Rasa"]===v).length),mx=Math.max(1,...cs);
+ $("bars").innerHTML=cs.map((n,i)=>`<div class="barcol"><b>${n}</b><div class="bar" style="height:${Math.max(2,n/mx*155)}px"></div>${i+1}</div>`).join("");
+ const low=[];D.forEach(x=>ASPECTS.forEach(k=>{if(Number.isFinite(x[k])&&x[k]<=3&&x.Review)low.push({x,k})}));
+ const fb=low.length?low.slice(0,20).map(({x,k})=>`<div class="comment"><span><b style="color:#b65346">${k} · ${x[k]}/5</b><br>“${esc(x.Review)}”</span><span style="white-space:nowrap;color:#879598">${new Date(x.Timestamp).toLocaleDateString("id-ID")}</span></div>`).join(""):`<div class="comment"><span>Tidak ada komentar dengan rating ≤3 pada periode ini.</span></div>`;
+ $("feedbackMini").innerHTML=fb;$("feedbackAll").innerHTML=fb;
+ $("rows").innerHTML=[...D].reverse().map(x=>`<tr><td>${new Date(x.Timestamp).toLocaleDateString("id-ID")}</td><td>—</td><td>${x.Ayam??"—"}</td><td>${x.Sambal??"—"}</td><td>${x["Overall Rasa"]??"—"}</td><td>${x["Overall Plating"]??"—"}</td><td>${esc(x.Review)}</td></tr>`).join("");
 }
-function renderReviews(){
- let a=$('attrFilter').value,max=+$('rateFilter').value,items=[];
- D.forEach(x=>(a==='Semua Aspek'?ASPECTS:[a]).forEach(k=>{if(Number.isFinite(x[k])&&x[k]<=max&&x.Review)items.push({x,k})}));
- $('reviews').innerHTML=items.length?items.slice(0,50).map(({x,k})=>`<div class="comment"><div class="reviewleft"><b>${k} · <span class="ratinglow">${x[k]}/5</span></b><span>“${esc(x.Review)}”</span></div><span class="date">${new Date(x.Timestamp).toLocaleDateString('id-ID')}</span></div>`).join(''):'<div class="comment">Tidak ada review pada filter ini.</div>';
-}
-function selectAspect(name){$('attrFilter').value=name;renderReviews();$('reviews').scrollIntoView({behavior:'smooth',block:'center'})}
-$('attrFilter').onchange=renderReviews;$('rateFilter').onchange=renderReviews;$('filters').onsubmit=e=>{e.preventDefault();render()};render();
-""".replace("__DATA__",json.dumps(records,ensure_ascii=False))
-
-    start=html.find("const attrs="); end=html.find("</script>",start)
-    if start<0 or end<0: raise RuntimeError("Template HTML V6 tidak dikenali")
-    html=html[:start]+js+html[end:]
-    html=html.replace("</main>",f'<div style="text-align:center;font-size:10px;color:#879598;margin:16px">Source: {source_label} · SharePoint live · cache 60 detik</div></main>')
+const side=$("sidebar"),shell=document.querySelector(".shell");const setSidebar=hidden=>{side.classList.toggle("hide",hidden);shell.classList.toggle("sidebar-collapsed",hidden);try{localStorage.setItem("kk_hide",hidden?"1":"0")}catch(e){}};
+$("hidebtn").onclick=()=>setSidebar(true);$("menutoggle").onclick=()=>setSidebar(!side.classList.contains("hide"));try{if(localStorage.getItem("kk_hide")==="1")setSidebar(true)}catch(e){}
+document.querySelectorAll(".nav button[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));const p=$(b.dataset.page);if(p)p.classList.add("active");if(innerWidth<700)setSidebar(true)});
+$("filters").onsubmit=e=>{e.preventDefault();render()};render();
+</script>'''.replace("__DATA__",json.dumps(data,ensure_ascii=False))
+    html=html[:a]+js+html[b+9:]
+    html=html.replace("Prototype dashboard dengan data dummy. Nantinya satu link dapat berisi beberapa sub-dashboard.","Dashboard live dari SharePoint · cache data 60 detik.")
+    html=html.replace("</main>",f'<div style="text-align:center;font-size:10px;color:#879598;margin:14px">Source: {source_label} · cache 60 detik</div></main>')
     return html
 
 if st.session_state.view=="all":
-    _old=old_html(old_data())
-    _shell=r"""<style>
-html,body{margin:0}.kk-shell{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh;transition:grid-template-columns .2s}.kk-shell.collapsed{grid-template-columns:0 minmax(0,1fr)}.kk-side{position:sticky;top:0;height:100vh;background:#fff;border-right:1px solid #dbe3e2;overflow:hidden;transition:transform .2s;z-index:30}.kk-shell.collapsed .kk-side{transform:translateX(-245px);visibility:hidden}.kk-brand{padding:25px 20px 18px;color:#0d3d4d;font-weight:850;font-size:17px}.kk-nav{padding:6px 12px}.kk-nav a{display:block;text-decoration:none;color:#385058;padding:12px 13px;border-radius:8px;margin-bottom:6px;font-weight:700}.kk-nav a.active{background:#e9f3f2;color:#0d5364}.kk-hide{position:absolute;bottom:25px;left:12px;right:12px;border:1px solid #d9e2e1;background:#f8faf9;border-radius:8px;padding:11px;cursor:pointer}.kk-main{min-width:0}.kk-open{position:fixed;left:14px;top:14px;z-index:50;width:43px;height:43px;border:0;border-radius:9px;background:#fff;box-shadow:0 3px 14px #102f3b35;font-size:23px;display:none}.kk-shell.collapsed .kk-open{display:block}</style>
-<div class="kk-shell" id="kkShell"><aside class="kk-side"><div class="kk-brand">Market Insight</div><nav class="kk-nav"><a class="active" href="?view=all" target="_top">ALL MENU / Dashboard Lama</a><a href="?view=geprek" target="_top">Ayam Geprek</a></nav><button class="kk-hide" onclick="toggleKK(true)">‹ &nbsp; Hide Menu</button></aside><section class="kk-main"><button class="kk-open" onclick="toggleKK(false)">☰</button>"""+_old+r"""</section></div><script>function toggleKK(h){document.getElementById('kkShell').classList.toggle('collapsed',h);try{localStorage.setItem('kk_menu_hidden',h?'1':'0')}catch(e){}}try{if(localStorage.getItem('kk_menu_hidden')==='1')toggleKK(true)}catch(e){}</script>"""
-    components.html(_shell,height=2200,scrolling=True)
+    components.html(old_html(old_data()),height=2200,scrolling=True)
 else:
     try:
         df,source=geprek()
-        components.html(geprek_v6_html(df,source),height=2600,scrolling=True)
+        components.html(geprek_reference_html(df,source),height=2600,scrolling=True)
     except Exception as e:
         st.error(f"Dashboard Ayam Geprek gagal membaca SharePoint live: {e}")
