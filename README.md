@@ -1,15 +1,12 @@
-# Kichi-Kichi Market Insight — Direct SharePoint
+# Kichi-Kichi Market Insight — HTML V6 + Direct SharePoint
 
-Satu URL Streamlit:
-- ALL MENU: source dashboard lama
-- AYAM GEPREK: **langsung dari SharePoint public**
-
-Tidak ada CSV fallback. Jika SharePoint tidak dapat di-download anonymous, dashboard akan menampilkan error agar tidak diam-diam memakai data lama.
+Production:
+- Satu URL Streamlit.
+- ALL MENU mempertahankan dashboard lama.
+- AYAM GEPREK menggunakan UI HTML V6 yang sudah disetujui.
+- Data Geprek dibaca langsung dari public SharePoint link.
+- Tidak ada CSV fallback.
+- Cache source: 60 detik.
 
 Run:
-```bash
-pip install -r requirements.txt
-streamlit run streamlit_app.py
-```
-
-Cache source: 60 detik.
+`streamlit run streamlit_app.py`

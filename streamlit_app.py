@@ -103,37 +103,80 @@ with a:
 with b:
     if st.button("AYAM GEPREK · Market Insight",use_container_width=True,type="primary" if st.session_state.view=="geprek" else "secondary"):st.session_state.view="geprek";st.rerun()
 
+
+V6_TEMPLATE=(BASE/"geprek_v6_template.html").read_text(encoding="utf-8")
+
+def geprek_v6_html(df,source_label):
+    html=V6_TEMPLATE
+    attrs=["Ayam","Sambal","Kol Goreng","Tahu","Tempe","Bayam Crispy"]
+    aspects=["Overall Rasa","Overall Plating","Rasa vs Harga","Porsi vs Harga"]
+    records=[]
+    for _,r in df.iterrows():
+        z={"Timestamp":r["Timestamp"].isoformat(),"Review":str(r.get("Review","") or "")}
+        for c in attrs+aspects:
+            v=r.get(c); z[c]=None if pd.isna(v) else float(v)
+        records.append(z)
+
+    # KPI placeholders
+    html=html.replace('<div class="val">282</div>','<div class="val" id="kpiN">—</div>',1)
+    html=html.replace('<div class="val">4,73 <small>/ 5</small></div>','<div class="val" id="kpiRasa">—</div>',1)
+    html=html.replace('<div class="val">4,61 <small>/ 5</small></div>','<div class="val" id="kpiPlating">—</div>',1)
+    html=html.replace('<div class="val">4,50 <small>/ 5</small></div>','<div class="val" id="kpiHarga">—</div>',1)
+
+    js=r"""
+const DATA=__DATA__;
+const ATTRS=['Ayam','Sambal','Kol Goreng','Tahu','Tempe','Bayam Crispy'];
+const ASPECTS=['Overall Rasa','Overall Plating','Rasa vs Harga','Porsi vs Harga'];
+const $=x=>document.getElementById(x), day=x=>x.Timestamp.slice(0,10);
+const fmt=v=>Number.isFinite(v)?v.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+const mean=(a,k)=>{let v=a.map(x=>x[k]).filter(Number.isFinite);return v.length?v.reduce((p,q)=>p+q,0)/v.length:null};
+const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let D=DATA, dates=DATA.map(day).sort();
+if(dates.length){$('from').value=dates[0];$('to').value=dates[dates.length-1]}
+
+function render(){
+ let a=$('from').value,b=$('to').value;
+ D=DATA.filter(x=>(!a||day(x)>=a)&&(!b||day(x)<=b));
+ $('kpiN').textContent=D.length;
+ $('kpiRasa').innerHTML=fmt(mean(D,'Overall Rasa'))+' <small>/ 5</small>';
+ $('kpiPlating').innerHTML=fmt(mean(D,'Overall Plating'))+' <small>/ 5</small>';
+ let q=[mean(D,'Rasa vs Harga'),mean(D,'Porsi vs Harga')].filter(Number.isFinite);
+ $('kpiHarga').innerHTML=(q.length?fmt(q.reduce((p,v)=>p+v,0)/q.length):'—')+' <small>/ 5</small>';
+
+ $('attrs').innerHTML=ATTRS.map(k=>{let v=mean(D,k);return `<div class="attr"><div class="attrname">${k}</div><div class="score">${fmt(v)}</div><div class="track"><div class="fill" style="width:${(v||0)/5*100}%"></div></div></div>`}).join('');
+
+ let ds=[...new Set(D.map(day))].sort(),counts=ds.map(d=>D.filter(x=>day(x)==d).length),mx=Math.max(1,...counts);
+ $('trend').innerHTML=ds.map((d,i)=>`<div class="tcol"><b>${counts[i]}</b><div class="bar" style="height:${counts[i]/mx*125}px"></div>${d.slice(8,10)}/${d.slice(5,7)}</div>`).join('');
+
+ let aa=ASPECTS.map(k=>({name:k,avg:mean(D,k),low:D.filter(x=>Number.isFinite(x[k])&&x[k]<=3).length}));
+ $('aspectRows').innerHTML=aa.map(x=>{let pct=D.length?x.low/D.length*100:0,flag=x.low===0?'Baik':pct<3?'Perlu dipantau':pct<6?'Perlu perhatian':'Prioritas';return `<tr onclick="selectAspect('${x.name}')" style="cursor:pointer"><td><b>${x.name}</b></td><td>${fmt(x.avg)}</td><td><span class="pill">${x.low}</span></td><td>${pct.toLocaleString('id-ID',{maximumFractionDigits:1})}%</td><td>${flag}</td></tr>`}).join('');
+
+ let cs=[1,2,3,4,5].map(v=>D.filter(x=>x['Overall Rasa']===v).length),cm=Math.max(1,...cs);
+ $('rating').innerHTML=cs.map((n,i)=>`<div class="tcol"><b>${n}</b><div class="bar" style="height:${Math.max(3,n/cm*125)}px"></div>${i+1}</div>`).join('');
+
+ $('rows').innerHTML=[...D].reverse().map(x=>`<tr><td>${new Date(x.Timestamp).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})}</td><td>—</td>${ATTRS.map(k=>`<td><span class="pill">${x[k]??'—'}</span></td>`).join('')}<td><span class="pill">${x['Overall Rasa']??'—'}</span></td><td>${x['Overall Plating']??'—'}</td><td>${x['Rasa vs Harga']??'—'}</td><td>${x['Porsi vs Harga']??'—'}</td><td style="min-width:260px;white-space:normal">${esc(x.Review)}</td></tr>`).join('');
+ renderReviews();
+}
+function renderReviews(){
+ let a=$('attrFilter').value,max=+$('rateFilter').value,items=[];
+ D.forEach(x=>(a==='Semua Aspek'?ASPECTS:[a]).forEach(k=>{if(Number.isFinite(x[k])&&x[k]<=max&&x.Review)items.push({x,k})}));
+ $('reviews').innerHTML=items.length?items.slice(0,50).map(({x,k})=>`<div class="comment"><div class="reviewleft"><b>${k} · <span class="ratinglow">${x[k]}/5</span></b><span>“${esc(x.Review)}”</span></div><span class="date">${new Date(x.Timestamp).toLocaleDateString('id-ID')}</span></div>`).join(''):'<div class="comment">Tidak ada review pada filter ini.</div>';
+}
+function selectAspect(name){$('attrFilter').value=name;renderReviews();$('reviews').scrollIntoView({behavior:'smooth',block:'center'})}
+$('attrFilter').onchange=renderReviews;$('rateFilter').onchange=renderReviews;$('filters').onsubmit=e=>{e.preventDefault();render()};render();
+""".replace("__DATA__",json.dumps(records,ensure_ascii=False))
+
+    start=html.find("const attrs="); end=html.find("</script>",start)
+    if start<0 or end<0: raise RuntimeError("Template HTML V6 tidak dikenali")
+    html=html[:start]+js+html[end:]
+    html=html.replace("</main>",f'<div style="text-align:center;font-size:10px;color:#879598;margin:16px">Source: {source_label} · SharePoint live · cache 60 detik</div></main>')
+    return html
+
 if st.session_state.view=="all":
     components.html(old_html(old_data()),height=2200,scrolling=True)
 else:
-    df,source=geprek()
-    st.markdown('<div class="kkhero"><small>MARKET INSIGHT · CUSTOMER SURVEY</small><h1>Ayam Geprek Kichi-Kichi</h1><p>Product quality, value for money, dan review pelanggan.</p></div>',unsafe_allow_html=True)
-    st.markdown('<div class="kkbody">',unsafe_allow_html=True)
-    d1,d2=st.columns(2)
-    lo,hi=df.Timestamp.min().date(),df.Timestamp.max().date()
-    with d1: start=st.date_input("Periode dari",lo,min_value=lo,max_value=hi)
-    with d2: end=st.date_input("Sampai",hi,min_value=lo,max_value=hi)
-    f=df[(df.Timestamp.dt.date>=start)&(df.Timestamp.dt.date<=end)].copy()
-    st.markdown('<div class="kksection">RINGKASAN OVERALL</div>',unsafe_allow_html=True)
-    q1,q2,q3,q4=st.columns(4)
-    q1.metric("TOTAL RESPONDEN",len(f));q2.metric("OVERALL RASA",f["Overall Rasa"].mean().round(2))
-    q3.metric("OVERALL PLATING",f["Overall Plating"].mean().round(2));q4.metric("QUALITY VS HARGA",f[["Rasa vs Harga","Porsi vs Harga"]].stack().mean().round(2))
-    st.markdown('<div class="kksection">RATA-RATA NILAI ATRIBUT</div>',unsafe_allow_html=True)
-    attrs=["Ayam","Sambal","Kol Goreng","Tahu","Tempe","Bayam Crispy"]
-    st.bar_chart(f[attrs].mean(),horizontal=True)
-    st.markdown('<div class="kksection">RATING RENDAH PER ASPEK</div>',unsafe_allow_html=True)
-    aspects=["Overall Rasa","Overall Plating","Rasa vs Harga","Porsi vs Harga"]
-    low=pd.DataFrame({"Aspek":aspects,"Rata-rata":[f[x].mean() for x in aspects],"Rating ≤ 3":[((f[x]<=3)&f[x].notna()).sum() for x in aspects]})
-    low["% Rendah"]=(low["Rating ≤ 3"]/max(1,len(f))*100).round(1)
-    st.dataframe(low,use_container_width=True,hide_index=True)
-    st.markdown('<div class="kksection">RATING RENDAH & REVIEW TERKAIT</div>',unsafe_allow_html=True)
-    c1,c2=st.columns([2,1])
-    with c1: aspect=st.selectbox("Aspek penilaian",aspects)
-    with c2: limit=st.selectbox("Batas rating",[3,2,1],format_func=lambda x:f"≤ {x}")
-    reviews=f[(f[aspect]<=limit)&f[aspect].notna()&f.Review.ne("")][["Timestamp",aspect,"Review"]].sort_values("Timestamp",ascending=False)
-    st.dataframe(reviews,use_container_width=True,hide_index=True)
-    st.markdown('<div class="kksection">SEMUA DATA SURVEI</div>',unsafe_allow_html=True)
-    detail=["Timestamp"]+attrs+aspects+["Review"]
-    st.dataframe(f[detail].sort_values("Timestamp",ascending=False),use_container_width=True,hide_index=True,height=520)
-    st.caption(f"Source: {source} · cache refresh ±60 detik")
-    st.markdown('</div>',unsafe_allow_html=True)
+    try:
+        df,source=geprek()
+        components.html(geprek_v6_html(df,source),height=2600,scrolling=True)
+    except Exception as e:
+        st.error(f"Dashboard Ayam Geprek gagal membaca SharePoint live: {e}")
