@@ -16,7 +16,7 @@ SHAREPOINT_URL="https://dikichi-my.sharepoint.com/:x:/p/faiz_hadiyanul/IQBhaRp7a
 
 st.set_page_config(page_title="Kichi-Kichi · Market Insight",page_icon="🍗",layout="wide",initial_sidebar_state="collapsed")
 st.markdown("""<style>
-#MainMenu,header,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important}
+#MainMenu,header,footer,[data-testid="stToolbar"],[data-testid="stDecoration"],section[data-testid="stSidebar"]{display:none!important}
 .block-container{padding:0 0 35px!important;max-width:none!important}iframe{border:0!important}
 .kkhero{background:#0c3544;color:white;padding:24px max(24px,calc((100vw - 1420px)/2)) 18px}.kkhero small{color:#a8ced1;font-weight:800;letter-spacing:1.4px}.kkhero h1{margin:5px 0 2px}.kkhero p{color:#c3d4d8;margin:0}
 .kkbody{max-width:1420px;margin:auto;padding:20px 24px}.kksection{font-weight:800;font-size:15px;margin:8px 0 12px}.kkcard{background:white;border:1px solid #dce3e1;border-radius:11px;padding:14px 16px;box-shadow:0 7px 22px rgba(20,44,51,.06)}
@@ -95,21 +95,53 @@ def geprek():
     df["Review"]=raw[comment].fillna("").astype(str).str.strip() if comment else ""
     return df.dropna(subset=["Timestamp"]).sort_values("Timestamp"),source
 
-# ONE LINK / TWO VIEWS — collapsible sidebar, full-width when hidden
-with st.sidebar:
-    st.markdown("### Market Insight")
-    view_label=st.radio(
-        "Dashboard",
-        ["ALL MENU · Dashboard Lama","AYAM GEPREK · Market Insight"],
-        index=0 if st.session_state.get("view","all")=="all" else 1,
-        label_visibility="collapsed",
-    )
-st.session_state.view="all" if view_label.startswith("ALL MENU") else "geprek"
+# ONE LINK / TWO VIEWS — custom HTML navigation uses ?view=all / ?view=geprek
+try:
+    _view=st.query_params.get("view","geprek")
+except Exception:
+    _view="geprek"
+st.session_state.view="all" if _view=="all" else "geprek"
 
 V6_TEMPLATE=(BASE/"geprek_v6_template.html").read_text(encoding="utf-8")
 
 def geprek_v6_html(df,source_label):
     html=V6_TEMPLATE
+    custom=r"""
+<style>
+html,body{margin:0!important}
+.kk-shell{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh;transition:grid-template-columns .2s ease}
+.kk-shell.collapsed{grid-template-columns:0 minmax(0,1fr)}
+.kk-side{position:sticky;top:0;height:100vh;background:#fff;border-right:1px solid #dbe3e2;overflow:hidden;transition:transform .2s ease;z-index:30}
+.kk-shell.collapsed .kk-side{transform:translateX(-245px);visibility:hidden}
+.kk-brand{padding:25px 20px 18px;color:#0d3d4d;font-weight:850;font-size:17px}
+.kk-nav{padding:6px 12px}.kk-nav a{display:block;text-decoration:none;color:#385058;padding:12px 13px;border-radius:8px;margin-bottom:6px;font-weight:700}
+.kk-nav a.active{background:#e9f3f2;color:#0d5364}.kk-hide{position:absolute;bottom:25px;left:12px;right:12px;border:1px solid #d9e2e1;background:#f8faf9;border-radius:8px;padding:11px;cursor:pointer;color:#52666b}
+.kk-main{min-width:0;position:relative}.kk-open{position:fixed;left:14px;top:14px;z-index:50;width:43px;height:43px;border:0;border-radius:9px;background:white;box-shadow:0 3px 14px #102f3b35;font-size:23px;color:#0d3d4d;cursor:pointer;display:none}
+.kk-shell.collapsed .kk-open{display:block}
+@media(max-width:760px){.kk-shell{grid-template-columns:0 minmax(0,1fr)}.kk-side{transform:translateX(-245px);visibility:hidden}.kk-open{display:block}}
+</style>
+<div class="kk-shell" id="kkShell">
+<aside class="kk-side">
+ <div class="kk-brand">Market Insight</div>
+ <nav class="kk-nav">
+   <a href="?view=all" target="_top">ALL MENU / Dashboard Lama</a>
+   <a href="?view=geprek" target="_top" class="active">Ayam Geprek</a>
+ </nav>
+ <button class="kk-hide" onclick="toggleKK(true)">‹ &nbsp; Hide Menu</button>
+</aside>
+<section class="kk-main"><button class="kk-open" onclick="toggleKK(false)">☰</button>
+"""
+    html=custom+html+r"""
+</section></div>
+<script>
+function toggleKK(hide){
+ const sh=document.getElementById('kkShell');
+ sh.classList.toggle('collapsed',hide);
+ try{localStorage.setItem('kk_menu_hidden',hide?'1':'0')}catch(e){}
+}
+try{if(localStorage.getItem('kk_menu_hidden')==='1')toggleKK(true)}catch(e){}
+</script>
+"""
     attrs=["Ayam","Sambal","Kol Goreng","Tahu","Tempe","Bayam Crispy"]
     aspects=["Overall Rasa","Overall Plating","Rasa vs Harga","Porsi vs Harga"]
     records=[]
@@ -175,7 +207,11 @@ $('attrFilter').onchange=renderReviews;$('rateFilter').onchange=renderReviews;$(
     return html
 
 if st.session_state.view=="all":
-    components.html(old_html(old_data()),height=2200,scrolling=True)
+    _old=old_html(old_data())
+    _shell=r"""<style>
+html,body{margin:0}.kk-shell{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:100vh;transition:grid-template-columns .2s}.kk-shell.collapsed{grid-template-columns:0 minmax(0,1fr)}.kk-side{position:sticky;top:0;height:100vh;background:#fff;border-right:1px solid #dbe3e2;overflow:hidden;transition:transform .2s;z-index:30}.kk-shell.collapsed .kk-side{transform:translateX(-245px);visibility:hidden}.kk-brand{padding:25px 20px 18px;color:#0d3d4d;font-weight:850;font-size:17px}.kk-nav{padding:6px 12px}.kk-nav a{display:block;text-decoration:none;color:#385058;padding:12px 13px;border-radius:8px;margin-bottom:6px;font-weight:700}.kk-nav a.active{background:#e9f3f2;color:#0d5364}.kk-hide{position:absolute;bottom:25px;left:12px;right:12px;border:1px solid #d9e2e1;background:#f8faf9;border-radius:8px;padding:11px;cursor:pointer}.kk-main{min-width:0}.kk-open{position:fixed;left:14px;top:14px;z-index:50;width:43px;height:43px;border:0;border-radius:9px;background:#fff;box-shadow:0 3px 14px #102f3b35;font-size:23px;display:none}.kk-shell.collapsed .kk-open{display:block}</style>
+<div class="kk-shell" id="kkShell"><aside class="kk-side"><div class="kk-brand">Market Insight</div><nav class="kk-nav"><a class="active" href="?view=all" target="_top">ALL MENU / Dashboard Lama</a><a href="?view=geprek" target="_top">Ayam Geprek</a></nav><button class="kk-hide" onclick="toggleKK(true)">‹ &nbsp; Hide Menu</button></aside><section class="kk-main"><button class="kk-open" onclick="toggleKK(false)">☰</button>"""+_old+r"""</section></div><script>function toggleKK(h){document.getElementById('kkShell').classList.toggle('collapsed',h);try{localStorage.setItem('kk_menu_hidden',h?'1':'0')}catch(e){}}try{if(localStorage.getItem('kk_menu_hidden')==='1')toggleKK(true)}catch(e){}</script>"""
+    components.html(_shell,height=2200,scrolling=True)
 else:
     try:
         df,source=geprek()

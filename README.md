@@ -1,9 +1,10 @@
-# Kichi-Kichi Market Insight V6 — Fixed
+# Market Insight V6 — Custom Collapsible Menu
 
-Perbaikan:
-- UI Geprek tetap HTML V6.
-- SharePoint live, cache 60 detik.
-- Blank Review/Distribusi diperbaiki (JavaScript tidak lagi berhenti karena element V6 yang tidak ada).
-- Navigasi ALL MENU / AYAM GEPREK dipindahkan ke sidebar Streamlit yang bisa collapse.
-- Saat sidebar di-hide, dashboard kembali full width.
-- Filter Outlet dummy dihapus karena source Geprek saat ini tidak memiliki mapping outlet.
+- UI Geprek: HTML V6.
+- Source Geprek: SharePoint live.
+- Cache: 60 detik.
+- Satu URL dengan dua view: ALL MENU dan Ayam Geprek.
+- Custom sidebar dapat Hide Menu.
+- Saat hide, grid sidebar menjadi 0px dan dashboard full width.
+- Tombol ☰ muncul untuk membuka menu kembali.
+- Status hide disimpan di browser.
