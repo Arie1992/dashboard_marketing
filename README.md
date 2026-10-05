@@ -1,12 +1,9 @@
-# Kichi-Kichi Market Insight — HTML V6 + Direct SharePoint
+# Kichi-Kichi Market Insight V6 — Fixed
 
-Production:
-- Satu URL Streamlit.
-- ALL MENU mempertahankan dashboard lama.
-- AYAM GEPREK menggunakan UI HTML V6 yang sudah disetujui.
-- Data Geprek dibaca langsung dari public SharePoint link.
-- Tidak ada CSV fallback.
-- Cache source: 60 detik.
-
-Run:
-`streamlit run streamlit_app.py`
+Perbaikan:
+- UI Geprek tetap HTML V6.
+- SharePoint live, cache 60 detik.
+- Blank Review/Distribusi diperbaiki (JavaScript tidak lagi berhenti karena element V6 yang tidak ada).
+- Navigasi ALL MENU / AYAM GEPREK dipindahkan ke sidebar Streamlit yang bisa collapse.
+- Saat sidebar di-hide, dashboard kembali full width.
+- Filter Outlet dummy dihapus karena source Geprek saat ini tidak memiliki mapping outlet.

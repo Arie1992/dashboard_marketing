@@ -16,7 +16,7 @@ SHAREPOINT_URL="https://dikichi-my.sharepoint.com/:x:/p/faiz_hadiyanul/IQBhaRp7a
 
 st.set_page_config(page_title="Kichi-Kichi · Market Insight",page_icon="🍗",layout="wide",initial_sidebar_state="collapsed")
 st.markdown("""<style>
-#MainMenu,header,footer,[data-testid="stToolbar"],[data-testid="stDecoration"],section[data-testid="stSidebar"]{display:none!important}
+#MainMenu,header,footer,[data-testid="stToolbar"],[data-testid="stDecoration"]{display:none!important}
 .block-container{padding:0 0 35px!important;max-width:none!important}iframe{border:0!important}
 .kkhero{background:#0c3544;color:white;padding:24px max(24px,calc((100vw - 1420px)/2)) 18px}.kkhero small{color:#a8ced1;font-weight:800;letter-spacing:1.4px}.kkhero h1{margin:5px 0 2px}.kkhero p{color:#c3d4d8;margin:0}
 .kkbody{max-width:1420px;margin:auto;padding:20px 24px}.kksection{font-weight:800;font-size:15px;margin:8px 0 12px}.kkcard{background:white;border:1px solid #dce3e1;border-radius:11px;padding:14px 16px;box-shadow:0 7px 22px rgba(20,44,51,.06)}
@@ -95,14 +95,16 @@ def geprek():
     df["Review"]=raw[comment].fillna("").astype(str).str.strip() if comment else ""
     return df.dropna(subset=["Timestamp"]).sort_values("Timestamp"),source
 
-# ONE LINK / TWO VIEWS
-a,b=st.columns(2)
-if "view" not in st.session_state:st.session_state.view="all"
-with a:
-    if st.button("ALL MENU · Dashboard Lama",use_container_width=True,type="primary" if st.session_state.view=="all" else "secondary"):st.session_state.view="all";st.rerun()
-with b:
-    if st.button("AYAM GEPREK · Market Insight",use_container_width=True,type="primary" if st.session_state.view=="geprek" else "secondary"):st.session_state.view="geprek";st.rerun()
-
+# ONE LINK / TWO VIEWS — collapsible sidebar, full-width when hidden
+with st.sidebar:
+    st.markdown("### Market Insight")
+    view_label=st.radio(
+        "Dashboard",
+        ["ALL MENU · Dashboard Lama","AYAM GEPREK · Market Insight"],
+        index=0 if st.session_state.get("view","all")=="all" else 1,
+        label_visibility="collapsed",
+    )
+st.session_state.view="all" if view_label.startswith("ALL MENU") else "geprek"
 
 V6_TEMPLATE=(BASE/"geprek_v6_template.html").read_text(encoding="utf-8")
 
@@ -149,7 +151,7 @@ function render(){
  $('trend').innerHTML=ds.map((d,i)=>`<div class="tcol"><b>${counts[i]}</b><div class="bar" style="height:${counts[i]/mx*125}px"></div>${d.slice(8,10)}/${d.slice(5,7)}</div>`).join('');
 
  let aa=ASPECTS.map(k=>({name:k,avg:mean(D,k),low:D.filter(x=>Number.isFinite(x[k])&&x[k]<=3).length}));
- $('aspectRows').innerHTML=aa.map(x=>{let pct=D.length?x.low/D.length*100:0,flag=x.low===0?'Baik':pct<3?'Perlu dipantau':pct<6?'Perlu perhatian':'Prioritas';return `<tr onclick="selectAspect('${x.name}')" style="cursor:pointer"><td><b>${x.name}</b></td><td>${fmt(x.avg)}</td><td><span class="pill">${x.low}</span></td><td>${pct.toLocaleString('id-ID',{maximumFractionDigits:1})}%</td><td>${flag}</td></tr>`}).join('');
+ if($('aspectRows')) $('aspectRows').innerHTML=aa.map(x=>{let pct=D.length?x.low/D.length*100:0,flag=x.low===0?'Baik':pct<3?'Perlu dipantau':pct<6?'Perlu perhatian':'Prioritas';return `<tr onclick="selectAspect('${x.name}')" style="cursor:pointer"><td><b>${x.name}</b></td><td>${fmt(x.avg)}</td><td><span class="pill">${x.low}</span></td><td>${pct.toLocaleString('id-ID',{maximumFractionDigits:1})}%</td><td>${flag}</td></tr>`}).join('');
 
  let cs=[1,2,3,4,5].map(v=>D.filter(x=>x['Overall Rasa']===v).length),cm=Math.max(1,...cs);
  $('rating').innerHTML=cs.map((n,i)=>`<div class="tcol"><b>${n}</b><div class="bar" style="height:${Math.max(3,n/cm*125)}px"></div>${i+1}</div>`).join('');
