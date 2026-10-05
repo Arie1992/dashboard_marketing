@@ -114,8 +114,8 @@ def geprek_reference_html(df,source_label):
 
     html=html.replace('<button class="active" data-page="overview">▣ Ayam Geprek</button>',
                       "<button class=\"active\" onclick=\"location.href=\'?view=geprek\'\">▣ Ayam Geprek</button>",1)
-    html=html.replace('<button data-page="legacy">▣ Menu Existing / Lama</button>',
-                      "<button onclick=\"location.href=\'?view=all\'\">▣ Menu Existing / Lama</button>",1)
+    html=html.replace('<button data-page="legacy">▣ ALL</button>',
+                      "<button onclick=\"location.href=\'?view=all\'\">▣ ALL</button>",1)
     html=re.sub(r'<label class="field"><span>Outlet</span><select>.*?</select></label>','',html,count=1,flags=re.S)
 
     a=html.find("<script>"); b=html.rfind("</script>")
@@ -146,6 +146,18 @@ const side=$("sidebar"),shell=document.querySelector(".shell");const setSidebar=
 $("hidebtn").onclick=()=>setSidebar(true);$("menutoggle").onclick=()=>setSidebar(!side.classList.contains("hide"));try{if(localStorage.getItem("kk_hide")==="1")setSidebar(true)}catch(e){}
 document.querySelectorAll(".nav button[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));const p=$(b.dataset.page);if(p)p.classList.add("active");if(innerWidth<700)setSidebar(true)});
 $("filters").onsubmit=e=>{e.preventDefault();render()};render();
+const kkBtn=document.getElementById("kkFloatMenu");
+if(kkBtn){
+ kkBtn.onclick=()=>{
+   const sb=document.getElementById("sidebar");
+   const sh=document.querySelector(".shell");
+   if(!sb||!sh)return;
+   const hidden=sb.classList.contains("hide");
+   sb.classList.toggle("hide",!hidden);
+   sh.classList.toggle("sidebar-collapsed",!hidden);
+   try{localStorage.setItem("kk_hide",!hidden?"1":"0")}catch(e){}
+ };
+}
 </script>'''.replace("__DATA__",json.dumps(data,ensure_ascii=False))
     html=html[:a]+js+html[b+9:]
     html=html.replace("Prototype dashboard dengan data dummy. Nantinya satu link dapat berisi beberapa sub-dashboard.","Dashboard live dari SharePoint · cache data 60 detik.")
