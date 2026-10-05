@@ -113,9 +113,9 @@ def geprek_reference_html(df,source_label):
         data.append(row)
 
     html=html.replace('<button class="active" data-page="overview">▣ Ayam Geprek</button>',
-                      '<button class="active" onclick="location.href=\\'?view=geprek\\'">▣ Ayam Geprek</button>',1)
+                      "<button class=\"active\" onclick=\"location.href=\'?view=geprek\'\">▣ Ayam Geprek</button>",1)
     html=html.replace('<button data-page="legacy">▣ Menu Existing / Lama</button>',
-                      '<button onclick="location.href=\\'?view=all\\'">▣ Menu Existing / Lama</button>',1)
+                      "<button onclick=\"location.href=\'?view=all\'\">▣ Menu Existing / Lama</button>",1)
     html=re.sub(r'<label class="field"><span>Outlet</span><select>.*?</select></label>','',html,count=1,flags=re.S)
 
     a=html.find("<script>"); b=html.rfind("</script>")
